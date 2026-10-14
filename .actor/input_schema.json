@@ -1,0 +1,56 @@
+{
+  "title": "Filmmakers Europe agency emails",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "cookiesJson": {
+      "title": "Session cookies as JSON",
+      "type": "string",
+      "description": "Paste the Cookie Editor export for www.filmmakers.eu taken while logged in.",
+      "editor": "textarea",
+      "isSecret": true
+    },
+    "startUrl": {
+      "title": "Start URL",
+      "type": "string",
+      "description": "The actor search page. Apply your filters in the browser first, the filter is kept in your session.",
+      "default": "https://www.filmmakers.eu/actor_profile_search/new",
+      "editor": "textfield"
+    },
+    "maxProfiles": {
+      "title": "Maximum profiles to open",
+      "type": "integer",
+      "description": "0 means no limit. Use a small number for a test.",
+      "default": 0
+    },
+    "maxPages": {
+      "title": "Maximum discovery pages",
+      "type": "integer",
+      "description": "0 means no limit.",
+      "default": 0
+    },
+    "minDelaySec": {
+      "title": "Minimum pause between profiles in seconds",
+      "type": "integer",
+      "default": 3
+    },
+    "maxDelaySec": {
+      "title": "Maximum pause between profiles in seconds",
+      "type": "integer",
+      "default": 8
+    },
+    "useProxy": {
+      "title": "Use Apify proxy",
+      "type": "boolean",
+      "description": "Turn on only if the site blocks the plain connection.",
+      "default": false
+    },
+    "startFromScratch": {
+      "title": "Ignore saved progress",
+      "type": "boolean",
+      "description": "Normally profiles already checked in earlier runs are skipped.",
+      "default": false
+    }
+  },
+  "required": ["cookiesJson"]
+}
