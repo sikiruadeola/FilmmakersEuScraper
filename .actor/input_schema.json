@@ -13,8 +13,15 @@
     "startUrl": {
       "title": "Start URL",
       "type": "string",
-      "description": "The actor search page. Apply your filters in the browser first, the filter is kept in your session.",
+      "description": "The actor search page.",
       "default": "https://www.filmmakers.eu/actor_profile_search/new",
+      "editor": "textfield"
+    },
+    "region": {
+      "title": "Region to select",
+      "type": "string",
+      "description": "Exact name of the region in the Regions filter, for example US & Canada. Leave empty to use the page as it opens.",
+      "default": "",
       "editor": "textfield"
     },
     "maxProfiles": {

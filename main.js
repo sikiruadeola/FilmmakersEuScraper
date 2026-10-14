@@ -101,6 +101,26 @@ function collectCards(p) {
   });
 }
 
+async function applyRegion(p, region) {
+  const btn = p.locator(`button:has-text('Regions')`).first();
+  if (!(await btn.count())) throw new Error('Regions control not found, check the RECON_page1 snapshot');
+  log.info('Regions button text: ' + (await btn.innerText()));
+  await btn.click({ timeout: 10000 });
+  await sleep(1200);
+  const panel = await p.evaluate(() => [...document.querySelectorAll(`[role=listbox],[role=menu],[class*=dropdown],[class*=popover],[class*=menu]`)].filter((e) => e.offsetParent !== null && e.innerText).map((e) => e.innerText.split('\n').join(' | ').slice(0, 500)).slice(0, 3));
+  log.info('Regions panel: ' + JSON.stringify(panel));
+  const opt = p.getByText(region, { exact: true }).first();
+  if (!(await opt.count())) throw new Error('Region not found in the list: ' + region);
+  await opt.click({ timeout: 10000 });
+  await sleep(1500);
+  await p.keyboard.press('Escape');
+  await settle(p);
+  const text = await p.evaluate(() => document.body.innerText);
+  const chip = text.split('\n').find((l) => l.startsWith('Regions:'));
+  const count = text.match(/of\s+([\d,]+)\s+results/i);
+  log.info('After region step. Chip: ' + chip + '. Results: ' + (count ? count[1] : 'not found'));
+}
+
 const NEXT = [
   `a[rel=next]`,
   `a[aria-label*='next' i]`,
@@ -142,6 +162,7 @@ async function advance(p) {
 let visited = 0;
 let saved = 0;
 let pageNo = 1;
+let diag = 0;
 let fatal = '';
 try {
   const r0 = await listing.goto(startUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -151,6 +172,7 @@ try {
   const bodyText = await listing.evaluate(() => document.body.innerText);
   const count = bodyText.match(/of\s+([\d,]+)\s+results/i);
   log.info('Site reports results: ' + (count ? count[1] : 'count not found') + '. Title: ' + (await listing.title()));
+  if (input.region) await applyRegion(listing, input.region);
 
   const seen = new Set();
   let emptyAdvance = 0;
@@ -186,6 +208,11 @@ try {
           log.info(`Saved ${emails[0]} for ${name}`);
         } else {
           log.info(`No contact email for ${name}`);
+          if (diag < 3) {
+            diag += 1;
+            const txt = await prof.evaluate(() => document.body.innerText);
+            log.info('PROFILE TEXT ' + c.url + ' :: ' + txt.split('\n').map((s) => s.trim()).filter(Boolean).join(' | ').slice(0, 1500));
+          }
         }
         done.add(c.url);
         errorsInRow = 0;
