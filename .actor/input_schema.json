@@ -32,11 +32,13 @@
     "minDelaySec": {
       "title": "Minimum pause between profiles in seconds",
       "type": "integer",
+      "description": "Shortest wait before opening the next profile.",
       "default": 3
     },
     "maxDelaySec": {
       "title": "Maximum pause between profiles in seconds",
       "type": "integer",
+      "description": "Longest wait before opening the next profile.",
       "default": 8
     },
     "useProxy": {
