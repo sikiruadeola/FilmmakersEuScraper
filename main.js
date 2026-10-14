@@ -102,10 +102,16 @@ function collectCards(p) {
 }
 
 async function applyRegion(p, region) {
-  const btn = p.locator(`button:has-text('Regions')`).first();
-  if (!(await btn.count())) throw new Error('Regions control not found, check the RECON_page1 snapshot');
-  log.info('Regions button text: ' + (await btn.innerText()));
-  await btn.click({ timeout: 10000 });
+  const ctl = p.getByText(/^\s*Regions/).first();
+  if (!(await ctl.count())) {
+    const html = await p.evaluate(() => {
+      const el = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && (e.textContent || '').includes('Regions'));
+      return el && el.parentElement ? el.parentElement.outerHTML.slice(0, 700) : 'no element contains the word Regions';
+    });
+    throw new Error('Regions control not found. Nearby html: ' + html);
+  }
+  log.info('Regions control text: ' + (await ctl.innerText()) + ' | url before: ' + p.url());
+  await ctl.click({ timeout: 10000 });
   await sleep(1200);
   const panel = await p.evaluate(() => [...document.querySelectorAll(`[role=listbox],[role=menu],[class*=dropdown],[class*=popover],[class*=menu]`)].filter((e) => e.offsetParent !== null && e.innerText).map((e) => e.innerText.split('\n').join(' | ').slice(0, 500)).slice(0, 3));
   log.info('Regions panel: ' + JSON.stringify(panel));
@@ -118,7 +124,7 @@ async function applyRegion(p, region) {
   const text = await p.evaluate(() => document.body.innerText);
   const chip = text.split('\n').find((l) => l.startsWith('Regions:'));
   const count = text.match(/of\s+([\d,]+)\s+results/i);
-  log.info('After region step. Chip: ' + chip + '. Results: ' + (count ? count[1] : 'not found'));
+  log.info('After region step. Chip: ' + chip + '. Results: ' + (count ? count[1] : 'not found') + ' | url after: ' + p.url());
 }
 
 const NEXT = [
