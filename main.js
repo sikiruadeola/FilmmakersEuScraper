@@ -1,9 +1,8 @@
 import { Actor, log } from 'apify';
 import { chromium } from 'playwright';
 import { normalizeCookies, findEmails, pickBlock, cleanBlock, slugName } from './lib.js';
+import { sleep, rand, settle, collectCards, advance, applyRegion } from './site.js';
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const rand = (a, b) => a + Math.random() * (b - a);
 const BLOCKED = /just a moment|attention required|access denied|forbidden|verify you are human/i;
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
@@ -57,11 +56,6 @@ async function snapshot(p, key) {
   }
 }
 
-async function settle(p) {
-  await p.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => {});
-  await sleep(rand(1500, 3000));
-}
-
 async function guard(p, resp, label) {
   const title = await p.title().catch(() => '');
   const status = resp ? resp.status() : 0;
@@ -75,94 +69,6 @@ async function guard(p, resp, label) {
     await snapshot(p, 'LOGGEDOUT');
     throw new Error('LOGGED OUT on ' + label + ' (url ' + url + ')');
   }
-}
-
-function collectCards(p) {
-  return p.evaluate(() => {
-    const out = new Map();
-    for (const a of document.querySelectorAll('a[href*="/actors/"]')) {
-      let u;
-      try {
-        u = new URL(a.href);
-      } catch {
-        continue;
-      }
-      const path = u.pathname.endsWith('/') ? u.pathname.slice(0, -1) : u.pathname;
-      const parts = path.split('/').filter(Boolean);
-      const i = parts.indexOf('actors');
-      if (i < 0 || parts.length !== i + 2 || ['search', 'new'].includes(parts[i + 1])) continue;
-      const url = u.origin + path;
-      const ls = (a.innerText || '').split('\n').map((s) => s.trim()).filter(Boolean);
-      const name = ls.length ? ls[ls.length - 1] : '';
-      const prev = out.get(url);
-      if (!prev || (!prev.name && name)) out.set(url, { url, name });
-    }
-    return [...out.values()];
-  });
-}
-
-async function applyRegion(p, region) {
-  const ctl = p.getByText(/^\s*Regions/).first();
-  if (!(await ctl.count())) {
-    const html = await p.evaluate(() => {
-      const el = [...document.querySelectorAll('*')].find((e) => e.children.length === 0 && (e.textContent || '').includes('Regions'));
-      return el && el.parentElement ? el.parentElement.outerHTML.slice(0, 700) : 'no element contains the word Regions';
-    });
-    throw new Error('Regions control not found. Nearby html: ' + html);
-  }
-  log.info('Regions control text: ' + (await ctl.innerText()) + ' | url before: ' + p.url());
-  await ctl.click({ timeout: 10000 });
-  await sleep(1200);
-  const panel = await p.evaluate(() => [...document.querySelectorAll(`[role=listbox],[role=menu],[class*=dropdown],[class*=popover],[class*=menu]`)].filter((e) => e.offsetParent !== null && e.innerText).map((e) => e.innerText.split('\n').join(' | ').slice(0, 500)).slice(0, 3));
-  log.info('Regions panel: ' + JSON.stringify(panel));
-  const opt = p.getByText(region, { exact: true }).first();
-  if (!(await opt.count())) throw new Error('Region not found in the list: ' + region);
-  await opt.click({ timeout: 10000 });
-  await sleep(1500);
-  await p.keyboard.press('Escape');
-  await settle(p);
-  const text = await p.evaluate(() => document.body.innerText);
-  const chip = text.split('\n').find((l) => l.startsWith('Regions:'));
-  const count = text.match(/of\s+([\d,]+)\s+results/i);
-  log.info('After region step. Chip: ' + chip + '. Results: ' + (count ? count[1] : 'not found') + ' | url after: ' + p.url());
-}
-
-const NEXT = [
-  `a[rel=next]`,
-  `a[aria-label*='next' i]`,
-  `button[aria-label*='next' i]`,
-  `li.next a`,
-  `a.next`,
-  `a:has-text('Next')`,
-  `button:has-text('Next')`,
-  `a:has-text('Load more')`,
-  `button:has-text('Load more')`,
-  `button:has-text('Show more')`,
-  `a:has-text('\u203a')`,
-  `a:has-text('\u00bb')`,
-];
-let advanceMethod = '';
-async function advance(p) {
-  for (const s of NEXT) {
-    const el = p.locator(s).first();
-    if (!(await el.count())) continue;
-    if (!(await el.isVisible().catch(() => false))) continue;
-    if ((await el.getAttribute('aria-disabled').catch(() => null)) === 'true') continue;
-    if (await el.isDisabled().catch(() => false)) continue;
-    try {
-      await el.scrollIntoViewIfNeeded();
-      await el.click({ timeout: 10000 });
-      if (advanceMethod !== s) log.info('Paging with: ' + s);
-      advanceMethod = s;
-      return s;
-    } catch {
-      /* try the next selector */
-    }
-  }
-  await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  if (advanceMethod !== 'scroll') log.info('No next control found, scrolling instead');
-  advanceMethod = 'scroll';
-  return 'scroll';
 }
 
 let visited = 0;
