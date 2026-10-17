@@ -1,4 +1,6 @@
 const EMAIL = /[A-Za-z0-9._%+\x2d]+@[A-Za-z0-9\x2d]+(?:\.[A-Za-z0-9\x2d]+)*\.[A-Za-z]{2,}/g;
+const PHONE = /(?<![A-Za-z@])\+?\(?\d[\d ()./\x2d]{5,}\d(?![\d@])/g;
+const LABEL = /^(tel|phone|mobile|fax|t|m)[:.]?$/i;
 const SAME_SITE = { lax: 'Lax', strict: 'Strict', none: 'None', no_restriction: 'None' };
 
 export function normalizeCookies(raw) {
@@ -22,9 +24,13 @@ export function normalizeCookies(raw) {
   });
 }
 
+export function stripPhones(text) {
+  return String(text || '').replace(PHONE, '');
+}
+
 export function findEmails(text) {
   const out = [];
-  for (const m of String(text || '').match(EMAIL) || []) {
+  for (const m of stripPhones(text).match(EMAIL) || []) {
     const e = m.toLowerCase();
     if (e.endsWith('filmmakers.eu') || e.endsWith('.png') || e.endsWith('.jpg')) continue;
     if (!out.includes(e)) out.push(e);
@@ -34,19 +40,13 @@ export function findEmails(text) {
 
 const lines = (t) => String(t || '').split('\n').map((s) => s.trim()).filter(Boolean);
 
-function isPhone(l) {
-  const digits = (l.match(/\d/g) || []).length;
-  const letters = (l.match(/[A-Za-z]/g) || []).length;
-  return digits >= 7 && letters <= 6;
-}
-
 export function pickBlock(candidates) {
   const good = candidates.filter((t) => findEmails(t).length > 0).sort((a, b) => a.length - b.length);
   return good.find((t) => lines(t).length >= 3) || good[0] || '';
 }
 
 export function cleanBlock(text) {
-  return lines(text).filter((l) => !isPhone(l) && !l.toLowerCase().startsWith('open agency')).join(' | ');
+  return lines(stripPhones(text)).filter((l) => !LABEL.test(l) && !l.toLowerCase().startsWith('open agency')).join(' | ');
 }
 
 export function slugName(url) {
